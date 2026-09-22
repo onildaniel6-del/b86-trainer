@@ -243,6 +243,8 @@
   <div class="actions" style="margin-top:22px">
     <button class="btn ghost sm danger" id="t-reset">↺ Сбросить прогресс</button>
     <button class="btn ghost sm" id="t-unexclude">＋ Вернуть исключённые</button>
+    <button class="btn ghost sm" id="t-export">⤓ Экспорт прогресса</button>
+    <button class="btn ghost sm" id="t-import">⤒ Импорт прогресса</button>
   </div>
 </main>
 
@@ -3166,6 +3168,7 @@ const QUESTIONS = [
 
 /* ============ УТИЛИТЫ ============ */
 const LS_KEY = "b86_progress_v1";
+const SEED_PROGRESS = null; // снимок прогресса для переноса (при пустом хранилище применяется автоматически)
 const LEARN_BOX = 3;              // 3 верных подряд = выучено
 const $ = s => document.querySelector(s);
 const el = (t,c)=>{const e=document.createElement(t); if(c)e.className=c; return e;};
@@ -3181,6 +3184,7 @@ let MEM=null;
 function loadProg(){ try{return JSON.parse(localStorage.getItem(LS_KEY))||{};}catch(e){return MEM||{};} }
 function saveProg(p){ MEM=p; try{localStorage.setItem(LS_KEY, JSON.stringify(p));}catch(e){} }
 let PROG = loadProg();
+if((!PROG || Object.keys(PROG).length===0) && SEED_PROGRESS){ PROG={...SEED_PROGRESS}; saveProg(PROG); }
 function pget(id){ return PROG[id] || {box:0, excluded:false}; }
 function pset(id,v){ PROG[id]={...pget(id),...v}; saveProg(PROG); }
 function ptarget(id){ const t=pget(id).target; return (t&&t>0) ? t : LEARN_BOX; } // повторов до «выучено», по вопросу
@@ -3372,12 +3376,29 @@ function unexclude(){
   Object.keys(PROG).forEach(id=>{ if(PROG[id]) PROG[id].excluded=false; });
   saveProg(PROG); renderStats(); nextQuestion();
 }
+function exportProg(){
+  try{
+    const code=btoa(unescape(encodeURIComponent(JSON.stringify(PROG))));
+    window.prompt("Код прогресса — выделите и скопируйте (для переноса на телефон):", code);
+  }catch(e){ alert("Ошибка экспорта: "+e.message); }
+}
+function importProg(){
+  const c=window.prompt("Вставьте код прогресса:");
+  if(!c) return;
+  try{
+    const obj=JSON.parse(decodeURIComponent(escape(atob(c.trim()))));
+    if(typeof obj!=="object" || !obj) throw new Error("bad");
+    PROG=obj; saveProg(PROG); alert("Прогресс импортирован."); location.reload();
+  }catch(e){ alert("Не удалось разобрать код прогресса."); }
+}
 
 $("#t-theme").onchange=()=>{ lastId=null; nextQuestion(); };
 $("#t-batch").onchange=()=>{ lastId=null; nextQuestion(); };
 $("#t-shuffle").onclick=()=>{ lastId=null; nextQuestion(); };
 $("#t-reset").onclick=resetProg;
 $("#t-unexclude").onclick=unexclude;
+$("#t-export").onclick=exportProg;
+$("#t-import").onclick=importProg;
 
 // клавиатура: Enter — проверить/дальше
 document.addEventListener("keydown",e=>{
